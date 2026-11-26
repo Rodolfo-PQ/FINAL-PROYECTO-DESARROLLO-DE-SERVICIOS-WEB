@@ -1,0 +1,15 @@
+# Artefactos de compilación y paquetes descargados.
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/backups/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.vscode/
+.idea/
+.env
+.env.*
+*.user
+*.suo

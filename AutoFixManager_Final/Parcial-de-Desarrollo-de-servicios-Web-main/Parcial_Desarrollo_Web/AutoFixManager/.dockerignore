@@ -1,0 +1,10 @@
+# Exclusiones comunes al construir cualquiera de los contextos del proyecto.
+.git
+**/node_modules
+**/dist
+**/bin
+**/obj
+**/.env
+**/.env.*
+**/*.log
+**/coverage

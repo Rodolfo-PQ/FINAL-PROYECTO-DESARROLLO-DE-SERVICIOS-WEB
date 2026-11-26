@@ -1,0 +1,228 @@
+@baseUrl = http://localhost:8080
+@adminToken = PASTE_ADMIN_JWT_HERE
+@mecanicoToken = PASTE_MECANICO_JWT_HERE
+@clienteToken = PASTE_CLIENTE_JWT_HERE
+@clienteId = 1
+@clienteId2 = 2
+@vehiculoId = 1
+@mecanicoId = 2
+@mecanicoId2 = 3
+@servicioId = 1
+
+### Salud
+GET {{baseUrl}}/health
+
+### Ruta protegida sin token (esperado 401)
+GET {{baseUrl}}/api/clientes
+
+### Login ADMIN - copia el valor token en @adminToken
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "nombreUsuario": "admin",
+  "contrasena": "Admin123*"
+}
+
+### Renovar JWT ADMIN (conserva la cookie HttpOnly del login)
+POST {{baseUrl}}/api/auth/refresh
+
+### Crear cuenta MECANICO
+POST {{baseUrl}}/api/auth/usuarios
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "nombreUsuario": "mecanico1",
+  "contrasena": "Mecanico123*",
+  "rol": "MECANICO"
+}
+
+### Crear segundo mecánico para asignación compartida
+POST {{baseUrl}}/api/auth/usuarios
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "nombreUsuario": "mecanico2",
+  "contrasena": "Mecanico123*",
+  "rol": "MECANICO"
+}
+
+### Listar cuentas (sin hashes)
+GET {{baseUrl}}/api/auth/usuarios
+Authorization: Bearer {{adminToken}}
+
+### Crear cliente
+POST {{baseUrl}}/api/clientes
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Lucia",
+  "apellido": "Morales",
+  "email": "lucia.morales@example.com",
+  "telefono": "3001234567"
+}
+
+### Crear vehículo
+POST {{baseUrl}}/api/vehiculos
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "clienteId": {{clienteId}},
+  "placa": "ABC-123",
+  "marca": "Toyota",
+  "modelo": "Corolla",
+  "anio": 2022,
+  "color": "Gris"
+}
+
+### Crear orden y asignar mecánico
+POST {{baseUrl}}/api/servicios
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "clienteId": {{clienteId}},
+  "vehiculoId": {{vehiculoId}},
+  "mecanicoId": {{mecanicoId}},
+  "mecanicoIds": [{{mecanicoId}}, {{mecanicoId2}}],
+  "descripcion": "Cambio de aceite y revisión general",
+  "tipoMantenimiento": "Preventivo",
+  "fechaIngreso": "2026-11-22T12:00:00Z",
+  "costoEstimado": 250000,
+  "estado": "Programado"
+}
+
+### Consultar órdenes (ADMIN)
+GET {{baseUrl}}/api/servicios
+Authorization: Bearer {{adminToken}}
+
+### Resumen de órdenes por estado (procedimiento almacenado)
+GET {{baseUrl}}/api/reportes/servicios/estado
+Authorization: Bearer {{adminToken}}
+
+### Actualizar orden (ADMIN)
+PUT {{baseUrl}}/api/servicios/{{servicioId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "clienteId": {{clienteId}},
+  "vehiculoId": {{vehiculoId}},
+  "mecanicoId": {{mecanicoId}},
+  "descripcion": "Cambio de aceite realizado y revisión general",
+  "tipoMantenimiento": "Preventivo",
+  "fechaIngreso": "2026-11-22T12:00:00Z",
+  "costoEstimado": 250000,
+  "estado": "En proceso"
+}
+
+### Login MECANICO - copia el valor token en @mecanicoToken
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "nombreUsuario": "mecanico1",
+  "contrasena": "Mecanico123*"
+}
+
+### Clientes asignados al MECANICO
+GET {{baseUrl}}/api/mecanico/mis-clientes
+Authorization: Bearer {{mecanicoToken}}
+
+### Vehículos asignados al MECANICO
+GET {{baseUrl}}/api/mecanico/mis-vehiculos
+Authorization: Bearer {{mecanicoToken}}
+
+### Órdenes asignadas al MECANICO
+GET {{baseUrl}}/api/mecanico/mis-servicios
+Authorization: Bearer {{mecanicoToken}}
+
+### El filtro oculta órdenes no asignadas (esperado 404)
+GET {{baseUrl}}/api/mecanico/servicios/999999
+Authorization: Bearer {{mecanicoToken}}
+
+### MECANICO registra orden para un recurso asignado
+POST {{baseUrl}}/api/mecanico/servicios
+Authorization: Bearer {{mecanicoToken}}
+Content-Type: application/json
+
+{
+  "clienteId": {{clienteId}},
+  "vehiculoId": {{vehiculoId}},
+  "descripcion": "Inspección de frenos",
+  "tipoMantenimiento": "Diagnóstico",
+  "fechaIngreso": "2026-11-22T12:00:00Z",
+  "costoEstimado": 50000,
+  "estado": "Programado"
+}
+
+### Consultar una orden propia
+GET {{baseUrl}}/api/mecanico/servicios/{{servicioId}}
+Authorization: Bearer {{mecanicoToken}}
+
+### Actualizar una orden propia
+PUT {{baseUrl}}/api/mecanico/servicios/{{servicioId}}
+Authorization: Bearer {{mecanicoToken}}
+Content-Type: application/json
+
+{
+  "clienteId": {{clienteId}},
+  "vehiculoId": {{vehiculoId}},
+  "descripcion": "Inspección de frenos realizada",
+  "tipoMantenimiento": "Diagnóstico",
+  "fechaIngreso": "2026-11-22T12:00:00Z",
+  "costoEstimado": 50000,
+  "estado": "En proceso"
+}
+
+### MECANICO no puede consultar lista global (esperado 403)
+GET {{baseUrl}}/api/clientes
+Authorization: Bearer {{mecanicoToken}}
+
+### Crear cuenta CLIENTE
+POST {{baseUrl}}/api/auth/usuarios
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "nombreUsuario": "clienteportal",
+  "contrasena": "Cliente123*",
+  "rol": "CLIENTE",
+  "clienteId": {{clienteId}}
+}
+
+### Login CLIENTE - copia el valor token en @clienteToken
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "nombreUsuario": "clienteportal",
+  "contrasena": "Cliente123*"
+}
+
+### Vehículos propios del CLIENTE
+GET {{baseUrl}}/api/portal/mis-vehiculos
+Authorization: Bearer {{clienteToken}}
+
+### Historial propio del CLIENTE
+GET {{baseUrl}}/api/portal/mis-servicios
+Authorization: Bearer {{clienteToken}}
+
+### CLIENTE no puede consultar gestión global (esperado 403)
+GET {{baseUrl}}/api/servicios
+Authorization: Bearer {{clienteToken}}
+
+### Consultar recurso inexistente (esperado 404)
+GET {{baseUrl}}/api/servicios/999999
+Authorization: Bearer {{adminToken}}
+
+### Eliminar usuario MECANICO únicamente después de borrar sus órdenes
+DELETE {{baseUrl}}/api/auth/usuarios/{{mecanicoId}}
+Authorization: Bearer {{adminToken}}
+
+### Cerrar sesión y revocar refresh token
+POST {{baseUrl}}/api/auth/logout

@@ -1,0 +1,1127 @@
+{
+  "info": {
+    "name": "AutoFix Manager API",
+    "description": "Pruebas CRUD, JWT con refresh token rotatorio, relación muchos-a-muchos, procedimiento almacenado y aislamiento por rol. Ejecutar en orden; los usuarios y datos reciben un sufijo único por corrida.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "clienteId",
+      "value": ""
+    },
+    {
+      "key": "clienteId2",
+      "value": ""
+    },
+    {
+      "key": "vehiculoId",
+      "value": ""
+    },
+    {
+      "key": "servicioId",
+      "value": ""
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "mecanicoId",
+      "value": ""
+    },
+    {
+      "key": "mecanicoId2",
+      "value": ""
+    },
+    {
+      "key": "usuarioMecanicoId",
+      "value": ""
+    },
+    {
+      "key": "usuarioClienteId",
+      "value": ""
+    },
+    {
+      "key": "servicioMecanicoId",
+      "value": ""
+    },
+    {
+      "key": "tokenMecanico",
+      "value": ""
+    },
+    {
+      "key": "tokenMecanico2",
+      "value": ""
+    },
+    {
+      "key": "tokenCliente",
+      "value": ""
+    },
+    {
+      "key": "runSuffix",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Autenticación y permisos",
+      "item": [
+        {
+          "name": "Login ADMIN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"admin\",\n  \"contrasena\": \"Admin123*\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login ADMIN correcto', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token', pm.response.json().token);",
+                  "pm.collectionVariables.set('runSuffix', Date.now().toString().slice(-6));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Renovar JWT ADMIN con refresh token",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/refresh"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Refresh token rotatorio HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('La respuesta contiene un nuevo access token', () => pm.expect(pm.response.json().token).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('token', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear usuario MECANICO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n \"nombreUsuario\":\"mecanico{{runSuffix}}\",\n \"contrasena\":\"Mecanico123*\",\n \"rol\":\"MECANICO\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/usuarios"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('ADMIN puede crear usuario', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('mecanicoId', pm.response.json().id);",
+                  "pm.collectionVariables.set('usuarioMecanicoId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear segundo usuario MECANICO para relación muchos-a-muchos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n \"nombreUsuario\":\"mecanico2{{runSuffix}}\",\n \"contrasena\":\"Mecanico123*\",\n \"rol\":\"MECANICO\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/usuarios"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('ADMIN crea segundo mecánico HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('mecanicoId2', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar clientes con token ADMIN",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Token ADMIN autorizado', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar clientes sin token (debe ser 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/clientes",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Ruta protegida sin token', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Clientes",
+      "item": [
+        {
+          "name": "Crear cliente principal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Lucia\",\n  \"apellido\": \"Morales\",\n  \"email\": \"lucia.{{runSuffix}}@example.com\",\n  \"telefono\": \"3001234567\"\n}"
+            },
+            "url": "{{baseUrl}}/api/clientes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cliente creado con HTTP 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('clienteId', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar clientes",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/clientes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Lista de clientes HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('La respuesta es una lista', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener cliente creado",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cliente encontrado', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar cliente",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Lucia Elena\",\n  \"apellido\": \"Morales\",\n  \"email\": \"lucia.{{runSuffix}}@example.com\",\n  \"telefono\": \"3001234567\"\n}"
+            },
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cliente actualizado', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Correo duplicado devuelve 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Otra\",\n  \"apellido\": \"Persona\",\n  \"email\": \"LUCIA.{{runSuffix}}@example.com\",\n  \"telefono\": \"3007654321\"\n}"
+            },
+            "url": "{{baseUrl}}/api/clientes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Correo duplicado rechazado', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Campos obligatorios inválidos devuelven 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"\",\n  \"apellido\": \"\",\n  \"email\": \"no-es-correo\",\n  \"telefono\": \"1\"\n}"
+            },
+            "url": "{{baseUrl}}/api/clientes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Validación de cliente HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ID de cliente inexistente devuelve 404",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/clientes/999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cliente inexistente HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear segundo cliente para validar relaciones",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Mateo\",\n  \"apellido\": \"Rios\",\n  \"email\": \"mateo.{{runSuffix}}@example.com\",\n  \"telefono\": \"3112345678\"\n}"
+            },
+            "url": "{{baseUrl}}/api/clientes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Segundo cliente creado', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('clienteId2', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Vehículos",
+      "item": [
+        {
+          "name": "Crear vehículo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"placa\": \"A{{runSuffix}}\",\n  \"marca\": \"Toyota\",\n  \"modelo\": \"Corolla\",\n  \"anio\": 2022,\n  \"color\": \"Gris\"\n}"
+            },
+            "url": "{{baseUrl}}/api/vehiculos"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Vehículo creado HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('vehiculoId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar vehículos por cliente",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/vehiculos/cliente/{{clienteId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Vehículos del cliente HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener vehículo creado",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Vehículo encontrado HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Placa duplicada devuelve 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"placa\": \"A{{runSuffix}}\",\n  \"marca\": \"Honda\",\n  \"modelo\": \"Civic\",\n  \"anio\": 2021,\n  \"color\": \"Negro\"\n}"
+            },
+            "url": "{{baseUrl}}/api/vehiculos"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Placa duplicada HTTP 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Propietario inexistente devuelve 404",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": 999999,\n  \"placa\": \"XYZ-987\",\n  \"marca\": \"Honda\",\n  \"modelo\": \"Civic\",\n  \"anio\": 2021,\n  \"color\": \"Negro\"\n}"
+            },
+            "url": "{{baseUrl}}/api/vehiculos"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Relación de cliente inexistente HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar vehículo",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"placa\": \"A{{runSuffix}}\",\n  \"marca\": \"Toyota\",\n  \"modelo\": \"Corolla Hybrid\",\n  \"anio\": 2022,\n  \"color\": \"Gris\"\n}"
+            },
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Vehículo actualizado HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Servicios",
+      "item": [
+        {
+          "name": "Crear servicio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"vehiculoId\": {{vehiculoId}},\n  \"mecanicoId\": {{mecanicoId}},\n  \"mecanicoIds\": [{{mecanicoId}}, {{mecanicoId2}}],\n  \"descripcion\": \"Cambio de aceite y revisión general\",\n  \"tipoMantenimiento\": \"Preventivo\",\n  \"fechaIngreso\": \"2026-10-22T12:00:00Z\",\n  \"costoEstimado\": 250000,\n  \"estado\": \"Programado\"\n}"
+            },
+            "url": "{{baseUrl}}/api/servicios"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Servicio creado HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('La orden conserva los dos mecánicos asignados', () => pm.expect(pm.response.json().mecanicosAsignados).to.have.lengthOf(2));",
+                  "pm.collectionVariables.set('servicioId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener servicio creado",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/servicios/{{servicioId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Servicio encontrado HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "No eliminar vehículo con servicio relacionado",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Vehículo relacionado HTTP 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Campos obligatorios de servicio devuelven 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": 0,\n  \"vehiculoId\": 0,\n  \"descripcion\": \"\",\n  \"tipoMantenimiento\": \"\",\n  \"costoEstimado\": -1,\n  \"estado\": \"Desconocido\"\n}"
+            },
+            "url": "{{baseUrl}}/api/servicios"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Validación de servicio HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Relación cliente-vehículo inconsistente devuelve 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId2}},\n  \"vehiculoId\": {{vehiculoId}},\n  \"descripcion\": \"Servicio con relación inválida\",\n  \"tipoMantenimiento\": \"Correctivo\",\n  \"fechaIngreso\": \"2026-10-22T12:00:00Z\",\n  \"costoEstimado\": 100000,\n  \"estado\": \"Programado\"\n}"
+            },
+            "url": "{{baseUrl}}/api/servicios"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Relación incorrecta HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar servicio a En proceso",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"vehiculoId\": {{vehiculoId}},\n  \"mecanicoId\": {{mecanicoId}},\n  \"mecanicoIds\": [{{mecanicoId}}, {{mecanicoId2}}],\n  \"descripcion\": \"Cambio de aceite y revisión general\",\n  \"tipoMantenimiento\": \"Preventivo\",\n  \"fechaIngreso\": \"2026-10-22T12:00:00Z\",\n  \"costoEstimado\": 265000,\n  \"estado\": \"En proceso\"\n}"
+            },
+            "url": "{{baseUrl}}/api/servicios/{{servicioId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Servicio actualizado HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtrar servicios En proceso",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/servicios/estado/En%20proceso"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Filtro por estado HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('El filtro devuelve el servicio actualizado', () => pm.expect(pm.response.json().some(item => item.id === Number(pm.collectionVariables.get('servicioId')))).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar resumen por estado mediante procedimiento almacenado",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/reportes/servicios/estado"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Reporte del procedimiento almacenado HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('El reporte tiene estado y agregados', () => pm.expect(pm.response.json().every(row => row.estado !== undefined && row.cantidad !== undefined && row.costoTotal !== undefined)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ID de servicio inexistente devuelve 404",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/servicios/999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Servicio inexistente HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Portales y aislamiento por rol",
+      "item": [
+        {
+          "name": "Login MECANICO",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"mecanico{{runSuffix}}\",\n  \"contrasena\": \"Mecanico123*\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Login MECANICO correcto', () => pm.response.to.have.status(200));",
+                "pm.collectionVariables.set('tokenMecanico', pm.response.json().token);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "MECANICO no puede consultar reportes ADMIN",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/reportes/servicios/estado",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenMecanico}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Reporte restringido a ADMIN HTTP 403', () => pm.response.to.have.status(403));"
+          ] } }]
+        },
+        {
+          "name": "MECANICO consulta sus clientes",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mecanico/mis-clientes",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenMecanico}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Portal MECANICO HTTP 200', () => pm.response.to.have.status(200));"] } }]
+        },
+        {
+          "name": "MECANICO consulta sus vehículos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mecanico/mis-vehiculos",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenMecanico}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Vehículos asignados HTTP 200', () => pm.response.to.have.status(200));"] } }]
+        },
+        {
+          "name": "MECANICO consulta sus órdenes",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mecanico/mis-servicios",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenMecanico}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Servicios asignados HTTP 200', () => pm.response.to.have.status(200));"] } }]
+        },
+        {
+          "name": "Login segundo MECANICO",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"mecanico2{{runSuffix}}\",\n  \"contrasena\": \"Mecanico123*\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Login segundo MECANICO HTTP 200', () => pm.response.to.have.status(200));",
+            "pm.collectionVariables.set('tokenMecanico2', pm.response.json().token);"
+          ] } }]
+        },
+        {
+          "name": "Segundo MECANICO también consulta la orden compartida",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mecanico/mis-servicios",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenMecanico2}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('El segundo mecánico consulta el equipo compartido HTTP 200', () => pm.response.to.have.status(200));",
+            "pm.test('La orden aparece para ambos mecánicos', () => pm.expect(pm.response.json().some(item => item.id === Number(pm.collectionVariables.get('servicioId')))).to.be.true);"
+          ] } }]
+        },
+        {
+          "name": "MECANICO registra una orden para un cliente asignado",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"vehiculoId\": {{vehiculoId}},\n  \"descripcion\": \"Inspección de frenos y suspensión\",\n  \"tipoMantenimiento\": \"Diagnóstico\",\n  \"fechaIngreso\": \"2026-11-22T12:00:00Z\",\n  \"costoEstimado\": 50000,\n  \"estado\": \"Programado\"\n}"
+            },
+            "url": "{{baseUrl}}/api/mecanico/servicios",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenMecanico}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('MECANICO registra su orden HTTP 201', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('servicioMecanicoId', pm.response.json().id);"
+          ] } }]
+        },
+        {
+          "name": "MECANICO consulta una orden propia",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mecanico/servicios/{{servicioMecanicoId}}",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenMecanico}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Orden propia consultada HTTP 200', () => pm.response.to.have.status(200));"] } }]
+        },
+        {
+          "name": "MECANICO no puede consultar una orden no asignada",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/mecanico/servicios/999999",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenMecanico}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('La ruta filtra órdenes no asignadas como HTTP 404', () => pm.response.to.have.status(404));"
+          ] } }]
+        },
+        {
+          "name": "MECANICO actualiza su orden",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"vehiculoId\": {{vehiculoId}},\n  \"descripcion\": \"Inspección de frenos y suspensión\",\n  \"tipoMantenimiento\": \"Diagnóstico\",\n  \"fechaIngreso\": \"2026-11-22T12:00:00Z\",\n  \"costoEstimado\": 50000,\n  \"estado\": \"En proceso\"\n}"
+            },
+            "url": "{{baseUrl}}/api/mecanico/servicios/{{servicioMecanicoId}}",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenMecanico}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('MECANICO actualiza una orden propia HTTP 200', () => pm.response.to.have.status(200));"] } }]
+        },
+        {
+          "name": "MECANICO no consulta clientes globales",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/clientes",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenMecanico}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Acceso global MECANICO prohibido HTTP 403', () => pm.response.to.have.status(403));"] } }]
+        },
+        {
+          "name": "Crear usuario CLIENTE asociado al cliente de prueba",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"cliente{{runSuffix}}\",\n  \"contrasena\": \"Cliente123*\",\n  \"rol\": \"CLIENTE\",\n  \"clienteId\": {{clienteId}}\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/usuarios"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Usuario CLIENTE creado por ADMIN', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('usuarioClienteId', pm.response.json().id);"
+          ] } }]
+        },
+        {
+          "name": "Login CLIENTE",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreUsuario\": \"cliente{{runSuffix}}\",\n  \"contrasena\": \"Cliente123*\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Login CLIENTE correcto', () => pm.response.to.have.status(200));",
+            "pm.collectionVariables.set('tokenCliente', pm.response.json().token);"
+          ] } }]
+        },
+        {
+          "name": "CLIENTE consulta sus vehículos",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/portal/mis-vehiculos",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenCliente}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Vehículos propios HTTP 200', () => pm.response.to.have.status(200));",
+            "pm.expect(pm.response.json().every((vehiculo) => vehiculo.clienteId === Number(pm.collectionVariables.get('clienteId')))).to.eql(true);"
+          ] } }]
+        },
+        {
+          "name": "CLIENTE consulta su historial",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/portal/mis-servicios",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenCliente}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Historial propio HTTP 200', () => pm.response.to.have.status(200));",
+            "pm.expect(pm.response.json().every((servicio) => servicio.clienteId === Number(pm.collectionVariables.get('clienteId')))).to.eql(true);"
+          ] } }]
+        },
+        {
+          "name": "CLIENTE no accede al mantenimiento global",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/servicios",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tokenCliente}}", "type": "string" }] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Acceso global CLIENTE prohibido HTTP 403', () => pm.response.to.have.status(403));"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Conflictos y limpieza",
+      "item": [
+        {
+          "name": "No eliminar cliente con vehículo relacionado",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cliente relacionado HTTP 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar orden creada por MECANICO",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/servicios/{{servicioMecanicoId}}"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Orden creada por MECANICO eliminada por ADMIN HTTP 204', () => pm.response.to.have.status(204));"] } }]
+        },
+        {
+          "name": "Eliminar servicio principal",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/servicios/{{servicioId}}"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Servicio principal eliminado HTTP 204', () => pm.response.to.have.status(204));"] } }]
+        },
+        {
+          "name": "Eliminar vehículo",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/vehiculos/{{vehiculoId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Vehículo eliminado HTTP 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar cuenta CLIENTE de prueba",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/auth/usuarios/{{usuarioClienteId}}"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Cuenta CLIENTE eliminada HTTP 204', () => pm.response.to.have.status(204));"] } }]
+        },
+        {
+          "name": "Eliminar cuenta MECANICO de prueba",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/auth/usuarios/{{usuarioMecanicoId}}"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Cuenta MECANICO eliminada HTTP 204', () => pm.response.to.have.status(204));"] } }]
+        },
+        {
+          "name": "Eliminar segunda cuenta MECANICO de prueba",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/auth/usuarios/{{mecanicoId2}}"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Segunda cuenta MECANICO eliminada HTTP 204', () => pm.response.to.have.status(204));"] } }]
+        },
+        {
+          "name": "Eliminar cliente principal",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cliente eliminado HTTP 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar segundo cliente",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/clientes/{{clienteId2}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Segundo cliente eliminado HTTP 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout y revocación del refresh token",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/logout"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Logout revoca el refresh token y limpia cookie HTTP 204', () => pm.response.to.have.status(204));"
+          ] } }]
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  }
+}

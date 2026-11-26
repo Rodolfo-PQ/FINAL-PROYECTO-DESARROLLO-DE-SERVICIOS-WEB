@@ -1,0 +1,50 @@
+services:
+  database:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-AutoFixManagerRoot_2026!}"
+      MYSQL_DATABASE: AutoFixManagerDb
+      MYSQL_USER: autofix_app
+      MYSQL_PASSWORD: "${MYSQL_APP_PASSWORD:-AutoFixManagerApp_2026!}"
+    ports: ["3306:3306"]
+    volumes:
+      - autofix-mysql-data:/var/lib/mysql
+      - ./database/script-autofixmanager.sql:/docker-entrypoint-initdb.d/001-autofixmanager.sql:ro
+      - ./database/002-expansion.sql:/docker-entrypoint-initdb.d/002-expansion.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root --password=\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    networks: [autofix-network]
+  backend:
+    build: { context: ./backend, dockerfile: Dockerfile }
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__DefaultConnection: "Server=database;Port=3306;Database=AutoFixManagerDb;User Id=autofix_app;Password=${MYSQL_APP_PASSWORD:-AutoFixManagerApp_2026!};CharSet=utf8mb4"
+      Jwt__Key: "AutoFixManager-Docker-Key-2026-Change-In-Production-987654321"
+      Jwt__Issuer: AutoFixManager
+      Jwt__Audience: AutoFixManagerUsers
+      Auth__SecureRefreshCookie: "false"
+      Auth__AdminPassword: "${AUTOFIX_ADMIN_PASSWORD:-Admin123*}"
+      Backup__SqlitePath: "/app/backups/autofixmanager-backup.sqlite"
+    ports: ["8080:8080"]
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - autofix-backup-data:/app/backups
+    networks: [autofix-network]
+  frontend:
+    build: { context: ./frontend, dockerfile: Dockerfile }
+    ports: ["3000:80"]
+    depends_on: [backend]
+    networks: [autofix-network]
+volumes:
+  autofix-mysql-data:
+  autofix-backup-data:
+networks:
+  autofix-network:
+    driver: bridge

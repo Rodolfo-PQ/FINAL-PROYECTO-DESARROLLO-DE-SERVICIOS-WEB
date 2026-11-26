@@ -1,0 +1,9 @@
+# Excluir compilaciones locales, metadatos del IDE y configuración sensible.
+**/bin/
+**/obj/
+.git/
+.vs/
+*.user
+*.suo
+**/appsettings.Development.json
+**/secrets.json
